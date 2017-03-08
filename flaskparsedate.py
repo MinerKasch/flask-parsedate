@@ -11,9 +11,9 @@ PORT=5000
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 
-def parse_date(query):
-    parse = p.parse(query)[0]
-    date = time.strftime(TIME_FORMAT, parse)
+def parse(query):
+    parsed = p.parse(query)[0]
+    date = time.strftime(TIME_FORMAT, parsed)
 
     return date
 
@@ -21,14 +21,14 @@ def parse_date(query):
 @app.route('/', methods = ['GET', 'POST'])
 def api_root():
     if request.method == 'GET':
-        date = parse_date(request.args['q'])
+        date = parse(request.args['q'])
         js = json.dumps({
                 'input': request.args['q'],
                 'output': date
         })
 
     elif request.method == 'POST':
-        dates = [parse_date(line) for line in request.js.split('\n')]
+        dates = [parse(line) for line in request.js.split('\n')]
         js = json.dumps({
                 'input': request.js,
                 'output': '\n'.join(dates)
