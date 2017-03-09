@@ -12,6 +12,16 @@ PORT=5000
 TIME_FORMAT = '%Y-%m-%d'
 
 
+def parse(query):
+    date1 = parse1(query)
+    date2 = parse2(query)
+
+    if (date2 is None or date1 != date2):
+        raise ValueError('Error matching parsed dates')
+    else:
+        return date1
+
+
 def parse1(query):
     parsed = p.parse(query)[0]
     date = time.strftime(TIME_FORMAT, parsed)
