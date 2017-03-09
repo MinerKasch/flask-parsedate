@@ -1,6 +1,7 @@
 import json
 import time
 import dateparser
+import dateutil.parser
 from flask import Flask, Response, request
 import parsedatetime as pdt
 app = Flask(__name__)
@@ -15,11 +16,40 @@ TIME_FORMAT = '%Y-%m-%d'
 def parse(query):
     date1 = parse1(query)
     date2 = parse2(query)
+    date3 = parse3(query)
 
-    if (date2 is None or date1 != date2):
-        raise ValueError('Error matching parsed dates')
+    # 3 matches (perfect)
+    if (date1 is not None and date2 is not None and date3 is not None \
+            and date1 == date2 and date2 == date3):
+        output = date1
+        error = ''
+
+    # 2 matches (good enough)
+    elif (date1 is not None and date2 is not None \
+            and date1 == date2 and date1 != date3):
+        output = date1
+        error = 'dateutil failed: ' + str(date3)
+    elif (date1 is not None and date3 is not None \
+            and date1 == date3 and date1 != date2):
+        output = date1
+        error = 'dateparser failed: ' + str(date2)
+    elif (date2 is not None and date3 is not None \
+            and date2 == date3 and date1 != date2):
+        output = date2
+        error = 'parsedatetime failed: ' + str(date1)
+
+    # no matches (nope)
     else:
-        return date1
+        output = ''
+        error = 'parsedatetime: {0}; dateparser: {1}; dateutil: {2}'.format(date1, date2, date3)
+
+    js = json.dumps({
+        'input': query,
+        'output': output,
+        'error': error
+    })
+
+    return js
 
 
 def parse1(query):
@@ -39,37 +69,23 @@ def parse2(query):
     return date
 
 
+def parse3(query):
+    try:
+        parsed = dateutil.parser.parse(query)
+    except ValueError:
+        return None
+    date = parsed.strftime(TIME_FORMAT)
+
+    return date
+
+
 @app.route('/', methods = ['GET', 'POST'])
 def api_root():
     if request.method == 'GET':
-        date1 = parse1(request.args['q'])
-        date2 = parse2(request.args['q'])
-
-        if (date2 is None or date1 != date2):
-            output = 'Error matching parsed dates'
-        else:
-            output = date1
-
-        js = json.dumps({
-                'input': request.args['q'],
-                'output': output
-        })
+        js = parse(request.args['q'])
 
     elif request.method == 'POST':
-        dates1 = [parse1(line) for line in request.js.split('\n')]
-        dates2 = [parse2(line) for line in request.js.split('\n')]
-        output = []
-
-        for i in range(len(dates1)):
-            if dates2[i] is None or dates1[i] != dates2[i]:
-                output.append('Error matching parsed dates')
-            else:
-                output.append(dates1[i])
-
-        js = json.dumps({
-                'input': request.js,
-                'output': output
-        })
+        js = [parse(line) for line in request.js.split('\n')]
 
     resp = Response(js, status=200, mimetype='application/json')
 
